@@ -1,0 +1,13 @@
+{
+  "domain": "vguard",
+  "name": "V-Guard Smart Inverter",
+  "codeowners": ["@3d33p"],
+  "config_flow": true,
+  "documentation": "https://github.com/3d33p/ha-vguard",
+  "iot_class": "cloud_polling",
+  "version": "0.1.0",
+  "requirements": [
+    "requests>=2.31.0",
+    "pycryptodome>=3.20.0"
+  ]
+}

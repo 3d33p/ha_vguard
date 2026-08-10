@@ -1,0 +1,20 @@
+# Power Cut Trends — readable 7-day table (from inverter VG069/VG070).
+#
+# Dashboard → Edit → Add card → Manual → paste this YAML.
+# Or open the "Power Cut Trends" sensor more-info and use attribute "markdown".
+
+type: markdown
+title: Power Cut Trends (HH:MM)
+content: >
+  {% set ent = states.sensor
+     | selectattr('entity_id', 'search', 'power_cut_trends')
+     | rejectattr('entity_id', 'search', 'today')
+     | list
+     | first %}
+  {% if ent %}
+  {{ state_attr(ent.entity_id, 'markdown') }}
+  {% else %}
+  ### Power Cut Trends (HH:MM)
+
+  Sensor not found — update/reload the V-Guard integration first.
+  {% endif %}

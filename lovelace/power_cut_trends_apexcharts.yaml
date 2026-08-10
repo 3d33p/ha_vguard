@@ -1,0 +1,155 @@
+# Power Cut Trends — ApexCharts bar chart (app-style, more readable).
+#
+# Setup:
+# 1. HACS → Frontend → Download "ApexCharts Card" → Restart HA
+# 2. Settings → Devices → your V-Guard device → open "Power Cut Trends"
+#    → copy the entity_id (e.g. sensor.v_guard_smart_inverter_power_cut_trends)
+# 3. Dashboard → Edit → Add card → Manual → paste this file
+# 4. Replace BOTH occurrences of SENSOR_ENTITY below with that entity_id
+#
+# Colors: blue = cut count, green = duration (shown as H:MM).
+
+type: custom:apexcharts-card
+header:
+  title: Power Cut Trends (HH:MM)
+  show: true
+  show_states: false
+  colorize_states: true
+graph_span: 7d
+span:
+  end: day
+now:
+  show: false
+update_interval: 1min
+apex_config:
+  chart:
+    height: 340
+    stacked: false
+  legend:
+    show: true
+    position: bottom
+  # Transparent stroke = visual gap between blue/green bars in each day group
+  stroke:
+    show: true
+    width: 6
+    colors: ["transparent"]
+  plotOptions:
+    bar:
+      columnWidth: 52%
+      borderRadius: 3
+  dataLabels:
+    enabled: true
+    offsetY: -8
+    style:
+      fontSize: 11px
+      fontWeight: 600
+    formatter: |
+      EVAL:function (val, opts) {
+        if (val == null || isNaN(val)) return "";
+        // seriesIndex 1 = duration → H:MM
+        if (opts.seriesIndex === 1) {
+          const m = Math.round(Number(val));
+          const h = Math.floor(m / 60);
+          const mins = m % 60;
+          return h + ":" + String(mins).padStart(2, "0");
+        }
+        return String(Math.round(Number(val)));
+      }
+  tooltip:
+    shared: true
+    intersect: false
+    # y.formatter is ignored by apexcharts-card for generated series; use custom HTML.
+    custom: |
+      EVAL:function ({ series, dataPointIndex, w }) {
+        const toHHMM = (mins) => {
+          const m = Math.round(Number(mins) || 0);
+          const h = Math.floor(m / 60);
+          return h + ":" + String(m % 60).padStart(2, "0");
+        };
+        const ts = w.globals.seriesX[0][dataPointIndex];
+        const date = new Date(ts).toLocaleDateString(undefined, {
+          day: "2-digit",
+          month: "short",
+        });
+        const count = series[0][dataPointIndex];
+        const duration = series[1][dataPointIndex];
+        return (
+          '<div style="padding:8px 10px;font-size:13px;line-height:1.45">' +
+          "<div style=\"opacity:.7;margin-bottom:4px\">" + date + "</div>" +
+          "<div><span style=\"color:#3B82F6\">●</span> Power Cut Count: <b>" +
+          Math.round(Number(count) || 0) +
+          "</b></div>" +
+          "<div><span style=\"color:#22C55E\">●</span> Power Cut Trends (HH:MM): <b>" +
+          toHHMM(duration) +
+          "</b></div>" +
+          "</div>"
+        );
+      }
+  xaxis:
+    type: datetime
+    labels:
+      format: dd MMM
+      datetimeUTC: false
+yaxis:
+  - id: count
+    min: 0
+    decimals: 0
+    apex_config:
+      title:
+        text: Cuts
+      forceNiceScale: true
+  - id: duration
+    min: 0
+    decimals: 0
+    opposite: true
+    apex_config:
+      title:
+        text: Duration (HH:MM)
+      forceNiceScale: true
+      labels:
+        formatter: |
+          EVAL:function (val) {
+            if (val == null || isNaN(val)) return "";
+            const m = Math.round(Number(val));
+            const h = Math.floor(m / 60);
+            const mins = m % 60;
+            return h + ":" + String(mins).padStart(2, "0");
+          }
+series:
+  - entity: SENSOR_ENTITY
+    name: Power Cut Count
+    type: column
+    color: "#3B82F6"
+    yaxis_id: count
+    show:
+      datalabels: true
+      legend_value: false
+      in_header: false
+    data_generator: |
+      const out = [];
+      for (let i = 7; i >= 1; i--) {
+        const d = entity.attributes[`day${i}_date`];
+        const v = entity.attributes[`day${i}_count`];
+        if (d == null) continue;
+        out.push([new Date(`${d}T12:00:00`).getTime(), Number(v ?? 0)]);
+      }
+      return out;
+  - entity: SENSOR_ENTITY
+    name: Power Cut Trends (HH:MM)
+    type: column
+    color: "#22C55E"
+    yaxis_id: duration
+    unit: " "
+    show:
+      datalabels: true
+      legend_value: false
+      in_header: false
+    data_generator: |
+      const out = [];
+      for (let i = 7; i >= 1; i--) {
+        const d = entity.attributes[`day${i}_date`];
+        const v = entity.attributes[`day${i}_duration_minutes`];
+        if (d == null) continue;
+        out.push([new Date(`${d}T12:00:00`).getTime(), Number(v ?? 0)]);
+      }
+      return out;

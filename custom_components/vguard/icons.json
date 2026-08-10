@@ -1,0 +1,162 @@
+{
+  "entity": {
+    "button": {
+      "live_updates": {
+        "default": "mdi:broadcast"
+      }
+    },
+    "binary_sensor": {
+      "online": {
+        "default": "mdi:lan-disconnect",
+        "state": {
+          "on": "mdi:lan-connect",
+          "off": "mdi:lan-disconnect"
+        }
+      }
+    },
+    "select": {
+      "forced_power_cut": {
+        "default": "mdi:timer-sand",
+        "state": {
+          "Off": "mdi:timer-sand",
+          "30 Min": "mdi:timer-sand",
+          "60 Min": "mdi:timer-sand",
+          "120 Min": "mdi:timer-sand",
+          "180 Min": "mdi:timer-sand",
+          "240 Min": "mdi:timer-sand"
+        }
+      }
+    },
+    "number": {
+      "performance_level": {
+        "default": "mdi:speedometer"
+      },
+      "battery_backup": {
+        "default": "mdi:battery-heart-variant"
+      },
+      "load_alarm": {
+        "default": "mdi:alarm-light"
+      },
+      "poll_interval": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "switch": {
+      "power": {
+        "default": "mdi:power"
+      },
+      "holiday_mode": {
+        "default": "mdi:beach"
+      },
+      "turbo_charging": {
+        "default": "mdi:lightning-bolt-circle"
+      },
+      "appliance_mode": {
+        "default": "mdi:dishwasher"
+      },
+      "extra_backup": {
+        "default": "mdi:battery-arrow-up"
+      },
+      "advance_battery_low_alarm": {
+        "default": "mdi:battery-alert"
+      },
+      "mains_changeover_buzzer": {
+        "default": "mdi:bullhorn"
+      },
+      "day_time_load_usage": {
+        "default": "mdi:white-balance-sunny"
+      }
+    },
+    "sensor": {
+      "battery_voltage": {
+        "default": "mdi:sine-wave"
+      },
+      "mains_voltage": {
+        "default": "mdi:transmission-tower"
+      },
+      "output_voltage": {
+        "default": "mdi:power-plug"
+      },
+      "load_percentage": {
+        "default": "mdi:gauge"
+      },
+      "load_current": {
+        "default": "mdi:current-ac"
+      },
+      "load_watts": {
+        "default": "mdi:flash"
+      },
+      "charging_current": {
+        "default": "mdi:battery-charging"
+      },
+      "mains_status_label": {
+        "default": "mdi:power-plug-outline",
+        "state": {
+          "Mains Available": "mdi:power-plug",
+          "Mains Force Cut": "mdi:power-plug-off",
+          "Auto Mains Force Cut": "mdi:power-plug-off",
+          "Mains Fail": "mdi:power-plug-off-outline"
+        }
+      },
+      "load_status_label": {
+        "default": "mdi:lightning-bolt",
+        "state": {
+          "Load On Mains": "mdi:transmission-tower",
+          "Load On Inverter": "mdi:lightning-bolt",
+          "Standby Mode": "mdi:power-sleep"
+        }
+      },
+      "power_mode_label": {
+        "default": "mdi:tune-vertical",
+        "state": {
+          "Normal": "mdi:tune-vertical",
+          "UPS": "mdi:battery-charging",
+          "Equipment": "mdi:cog"
+        }
+      },
+      "charging_mode_label": {
+        "default": "mdi:battery-plus",
+        "state": {
+          "Normal": "mdi:battery-plus",
+          "High": "mdi:battery-plus-variant",
+          "Low": "mdi:battery-minus"
+        }
+      },
+      "power_saver_mode_label": {
+        "default": "mdi:leaf",
+        "state": {
+          "Normal": "mdi:leaf",
+          "Max": "mdi:leaf-circle"
+        }
+      },
+      "battery_type_label": {
+        "default": "mdi:car-battery"
+      },
+      "inverter_efficiency": {
+        "default": "mdi:percent-outline"
+      },
+      "solar_status_label": {
+        "default": "mdi:solar-power",
+        "state": {
+          "Solar Available": "mdi:solar-power",
+          "Solar Unavailable": "mdi:solar-power-variant-outline"
+        }
+      },
+      "solar_current": {
+        "default": "mdi:current-dc"
+      },
+      "inverter_firmware_version": {
+        "default": "mdi:chip"
+      },
+      "wifi_firmware_version": {
+        "default": "mdi:wifi-cog"
+      },
+      "wifi_signal_strength": {
+        "default": "mdi:wifi"
+      },
+      "power_cut_trends": {
+        "default": "mdi:chart-bar"
+      }
+    }
+  }
+}
