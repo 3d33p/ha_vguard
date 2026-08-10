@@ -32,13 +32,26 @@ Unofficial integration for **V-Guard Smart 2.0** inverters (cloud account). Not 
 3. Sign in with your V-Guard Smart app email and password.
 4. Optionally enter a serial number if the account has more than one device.
 
+## Lovelace — Power Cut Trends (ApexCharts)
+
+The **Power Cut Trends (Today)** sensor shows a one-line summary on the device page. For a 7-day bar chart like the app:
+
+1. In **HACS → Frontend**, download **[ApexCharts Card](https://github.com/RomRider/apexcharts-card)** and restart Home Assistant.
+2. Open **Settings → Devices & services → V-Guard** → your inverter device → **Power Cut Trends (Today)**.
+3. Copy that entity’s `entity_id` (for example `sensor.v_guard_smart_inverter_power_cut_trends`).
+4. Open a dashboard → **Edit** → **Add card** → **Manual**.
+5. Paste the contents of [`lovelace/power_cut_trends_apexcharts.yaml`](lovelace/power_cut_trends_apexcharts.yaml).
+6. Replace **both** `SENSOR_ENTITY` placeholders with the `entity_id` you copied.
+7. Save the card.
+
+Without ApexCharts, you can use the plain markdown table card instead: [`lovelace/power_cut_trends.yaml`](lovelace/power_cut_trends.yaml).
+
 ## Notes
 
 - Uses **cloud polling** (default **60s**). Press **Live Updates** or change a control for temporary **6s** polling (about 60s), then it reverts. **Poll Interval** ≥30s sticks; under 30s is temporary.
 - **Online** (diagnostic binary sensor) is on when the cloud subscribe API returns a device payload, and off when the payload is empty (device offline / empty cache). Other entities keep their last readings instead of flipping to Unavailable on a single miss.
 - Sessions are cached (access/refresh tokens + a stable phone-like FCM id) so restarts can refresh without a full password login.
 - Brand icons ship in `custom_components/vguard/brand/` (Home Assistant 2026.3+ local brands).
-- Power cut chart cards: [`lovelace/`](lovelace/) (ApexCharts recommended via HACS Frontend).
 - Inverter mode, charging mode, power saver, and battery type are **sensors only** — they follow the physical switches; this integration does not write them.
 - After updating via HACS or manually, **restart Home Assistant**. GitHub **Releases** (not just tags) give HACS a proper version number.
 
