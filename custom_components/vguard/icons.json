@@ -106,7 +106,8 @@
       "estimated_charging_hours": {
         "default": "mdi:battery-charging-outline",
         "state": {
-          "Fully Charged": "mdi:battery"
+          "Fully Charged": "mdi:battery",
+          "Mains Unavailable": "mdi:power-plug-off"
         }
       },
       "mains_status_label": {

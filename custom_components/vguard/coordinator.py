@@ -308,4 +308,5 @@ class VGuardDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data.get("battery_percentage"),
             data.get("charging_current"),
             data.get("solar_current"),
+            is_on_mains=data.get("is_on_mains"),
         )

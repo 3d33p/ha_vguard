@@ -17,6 +17,10 @@ TURBO_NEAR_FULL_BATTERY_PERCENT = 97
 # (battery_voltage × load_current × efficiency). Not exposed by the device.
 DEFAULT_INVERTER_EFFICIENCY = 0.90
 
+# Lead-acid / tubular banks should not be drained to 0%. Backup ETA only
+# counts usable capacity from current SOC down to this floor (percent).
+DEFAULT_BACKUP_SOC_FLOOR_PERCENT = 20.0
+
 # Ignore near-zero currents when estimating remaining / charge time.
 _ETA_CURRENT_FLOOR_A = 0.05
 # Cap absurd ETAs from tiny currents (1 week).
@@ -56,10 +60,13 @@ def estimate_backup_hours(
     load_current: float | None,
     *,
     is_on_mains: bool | None,
+    soc_floor_percent: float = DEFAULT_BACKUP_SOC_FLOOR_PERCENT,
 ) -> float | None:
     """Remaining backup time (hours) while discharging off-mains.
 
-    hours = (capacity_ah × SOC/100) / load_current
+    Counts only usable Ah above the SOC floor (default 20% for lead-acid):
+
+    hours = (capacity_ah × max(0, SOC − floor)/100) / load_current
     """
     if is_on_mains:
         return None
@@ -69,11 +76,19 @@ def estimate_backup_hours(
         ah = float(capacity_ah)
         soc = float(battery_percentage)
         amps = float(load_current)
+        floor = float(soc_floor_percent)
     except (TypeError, ValueError):
         return None
     if ah <= 0 or soc < 0 or amps < _ETA_CURRENT_FLOOR_A:
         return None
-    return _clamp_eta_hours((ah * (soc / 100.0)) / amps)
+    if floor < 0:
+        floor = 0.0
+    if floor >= 100:
+        return None
+    usable_fraction = (soc - floor) / 100.0
+    if usable_fraction <= 0:
+        return 0.0
+    return _clamp_eta_hours((ah * usable_fraction) / amps)
 
 
 def estimate_charging_hours(
@@ -118,6 +133,15 @@ def estimate_charging_hours(
     return _clamp_eta_hours((ah * (1.0 - soc / 100.0)) / charge_amps)
 
 
+def _format_eta_hhmm(hours: float) -> str:
+    """Format estimated hours as H:MM (e.g. 1.7 → 1:42)."""
+    total_minutes = int(round(float(hours) * 60))
+    if total_minutes < 0:
+        total_minutes = 0
+    h, m = divmod(total_minutes, 60)
+    return f"{h}:{m:02d}"
+
+
 def format_estimated_backup_time(
     capacity_ah: float | None,
     battery_percentage: float | None,
@@ -125,7 +149,7 @@ def format_estimated_backup_time(
     *,
     is_on_mains: bool | None,
 ) -> str | None:
-    """Human-readable backup ETA, or 'Mains Available' while on grid."""
+    """Human-readable backup ETA (H:MM), or 'Mains Available' while on grid."""
     if is_on_mains:
         return "Mains Available"
     hours = estimate_backup_hours(
@@ -136,7 +160,7 @@ def format_estimated_backup_time(
     )
     if hours is None:
         return None
-    return f"{hours} h"
+    return _format_eta_hhmm(hours)
 
 
 def format_estimated_charging_time(
@@ -144,8 +168,12 @@ def format_estimated_charging_time(
     battery_percentage: float | None,
     charging_current: float | None,
     solar_current: float | None = None,
+    *,
+    is_on_mains: bool | None = None,
 ) -> str | None:
-    """Human-readable charge ETA, or 'Fully Charged' at 100% SOC."""
+    """Human-readable charge ETA (H:MM), status labels when not charging."""
+    if is_on_mains is False:
+        return "Mains Unavailable"
     try:
         soc = float(battery_percentage) if battery_percentage is not None else None
     except (TypeError, ValueError):
@@ -160,7 +188,7 @@ def format_estimated_charging_time(
     )
     if hours is None:
         return None
-    return f"{hours} h"
+    return _format_eta_hhmm(hours)
 
 
 def _safe_int(value: Any, default: int | None = None) -> int | None:

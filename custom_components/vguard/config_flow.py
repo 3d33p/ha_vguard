@@ -10,6 +10,11 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
 from . import _pathsetup
 
@@ -26,12 +31,28 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY_AH,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    MAX_BATTERY_CAPACITY_AH,
     MAX_SCAN_INTERVAL,
-    MIN_BATTERY_CAPACITY_AH,
     MIN_SCAN_INTERVAL,
 )
 from .coordinator import clamp_battery_capacity_ah, clamp_scan_interval
+
+
+def _number_box(
+    *,
+    min_value: float | None = None,
+    max_value: float | None = None,
+    unit: str | None = None,
+    step: float = 1,
+) -> NumberSelector:
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=min_value,
+            max=max_value,
+            step=step,
+            mode=NumberSelectorMode.BOX,
+            unit_of_measurement=unit,
+        )
+    )
 
 
 async def _validate(
@@ -61,6 +82,10 @@ class VGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._title: str | None = None
+        self._entry_data: dict[str, Any] = {}
+
     async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -74,19 +99,14 @@ class VGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(serial or email.lower())
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=title,
-                    data={
-                        CONF_EMAIL: email,
-                        CONF_PASSWORD: password,
-                        CONF_SERIAL: serial or "",
-                        **tokens,
-                    },
-                    options={
-                        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
-                        CONF_BATTERY_CAPACITY_AH: DEFAULT_BATTERY_CAPACITY_AH,
-                    },
-                )
+                self._title = title
+                self._entry_data = {
+                    CONF_EMAIL: email,
+                    CONF_PASSWORD: password,
+                    CONF_SERIAL: serial or "",
+                    **tokens,
+                }
+                return await self.async_step_battery()
 
         schema = vol.Schema(
             {
@@ -96,6 +116,32 @@ class VGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+    async def async_step_battery(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Ask for battery bank capacity after a successful login."""
+        if user_input is not None:
+            capacity_ah = clamp_battery_capacity_ah(
+                user_input.get(CONF_BATTERY_CAPACITY_AH, DEFAULT_BATTERY_CAPACITY_AH)
+            )
+            return self.async_create_entry(
+                title=self._title or "V-Guard",
+                data=self._entry_data,
+                options={
+                    CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+                    CONF_BATTERY_CAPACITY_AH: capacity_ah,
+                },
+            )
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_BATTERY_CAPACITY_AH, default=DEFAULT_BATTERY_CAPACITY_AH
+                ): _number_box(unit="Ah"),
+            }
+        )
+        return self.async_show_form(step_id="battery", data_schema=schema)
 
     @staticmethod
     @callback
@@ -135,13 +181,13 @@ class VGuardOptionsFlow(config_entries.OptionsFlow):
         )
         schema = vol.Schema(
             {
-                vol.Required(CONF_SCAN_INTERVAL, default=current): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
+                vol.Required(CONF_SCAN_INTERVAL, default=current): _number_box(
+                    min_value=MIN_SCAN_INTERVAL,
+                    max_value=MAX_SCAN_INTERVAL,
+                    unit="s",
                 ),
-                vol.Required(CONF_BATTERY_CAPACITY_AH, default=current_ah): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=MIN_BATTERY_CAPACITY_AH, max=MAX_BATTERY_CAPACITY_AH),
+                vol.Required(CONF_BATTERY_CAPACITY_AH, default=current_ah): _number_box(
+                    unit="Ah",
                 ),
             }
         )
