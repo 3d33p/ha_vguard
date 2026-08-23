@@ -17,17 +17,21 @@ _pathsetup.ensure_library_path()
 
 from .const import (
     CONF_ACCESS_TOKEN,
+    CONF_BATTERY_CAPACITY_AH,
     CONF_EMAIL,
     CONF_FCM_TOKEN,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     CONF_SERIAL,
+    DEFAULT_BATTERY_CAPACITY_AH,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_BATTERY_CAPACITY_AH,
     MAX_SCAN_INTERVAL,
+    MIN_BATTERY_CAPACITY_AH,
     MIN_SCAN_INTERVAL,
 )
-from .coordinator import clamp_scan_interval
+from .coordinator import clamp_battery_capacity_ah, clamp_scan_interval
 
 
 async def _validate(
@@ -78,7 +82,10 @@ class VGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_SERIAL: serial or "",
                         **tokens,
                     },
-                    options={CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL},
+                    options={
+                        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+                        CONF_BATTERY_CAPACITY_AH: DEFAULT_BATTERY_CAPACITY_AH,
+                    },
                 )
 
         schema = vol.Schema(
@@ -99,29 +106,42 @@ class VGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class VGuardOptionsFlow(config_entries.OptionsFlow):
-    """Options: poll interval (stable >= 30s; under 30s is temporary)."""
+    """Options: poll interval and battery bank capacity (Ah)."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is not None:
             seconds = clamp_scan_interval(user_input[CONF_SCAN_INTERVAL])
+            capacity_ah = clamp_battery_capacity_ah(
+                user_input[CONF_BATTERY_CAPACITY_AH]
+            )
             return self.async_create_entry(
                 title="",
                 data={
                     **self.config_entry.options,
                     CONF_SCAN_INTERVAL: seconds,
+                    CONF_BATTERY_CAPACITY_AH: capacity_ah,
                 },
             )
 
         current = clamp_scan_interval(
             self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         )
+        current_ah = clamp_battery_capacity_ah(
+            self.config_entry.options.get(
+                CONF_BATTERY_CAPACITY_AH, DEFAULT_BATTERY_CAPACITY_AH
+            )
+        )
         schema = vol.Schema(
             {
                 vol.Required(CONF_SCAN_INTERVAL, default=current): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
+                ),
+                vol.Required(CONF_BATTERY_CAPACITY_AH, default=current_ah): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_BATTERY_CAPACITY_AH, max=MAX_BATTERY_CAPACITY_AH),
                 ),
             }
         )

@@ -16,12 +16,14 @@ _pathsetup.ensure_library_path()
 
 from .const import (
     CONF_ACCESS_TOKEN,
+    CONF_BATTERY_CAPACITY_AH,
     CONF_EMAIL,
     CONF_FCM_TOKEN,
     CONF_PASSWORD,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     CONF_SERIAL,
+    DEFAULT_BATTERY_CAPACITY_AH,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MIN_STABLE_SCAN_INTERVAL,
@@ -122,11 +124,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _persist_session(hass, entry, client)
 
     idle_s = _idle_poll_seconds(entry)
-    # Ensure options carry a stable default for the UI / Poll Interval entity.
-    if entry.options.get(CONF_SCAN_INTERVAL) != idle_s:
-        hass.config_entries.async_update_entry(
-            entry, options={**entry.options, CONF_SCAN_INTERVAL: idle_s}
-        )
+    # Ensure options carry stable defaults for the UI / Poll Interval / ETA.
+    options = dict(entry.options)
+    changed = False
+    if options.get(CONF_SCAN_INTERVAL) != idle_s:
+        options[CONF_SCAN_INTERVAL] = idle_s
+        changed = True
+    if CONF_BATTERY_CAPACITY_AH not in options:
+        options[CONF_BATTERY_CAPACITY_AH] = DEFAULT_BATTERY_CAPACITY_AH
+        changed = True
+    if changed:
+        hass.config_entries.async_update_entry(entry, options=options)
 
     coordinator = VGuardDataUpdateCoordinator(
         hass,
@@ -149,12 +157,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Apply options changes (e.g. poll interval) without full reconnect when possible."""
+    """Apply options changes (poll interval / battery Ah) without full reconnect."""
     stored = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if not stored:
         await hass.config_entries.async_reload(entry.entry_id)
         return
     coordinator: VGuardDataUpdateCoordinator = stored["coordinator"]
+    coordinator.refresh_time_estimates()
     requested = clamp_scan_interval(
         entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     )

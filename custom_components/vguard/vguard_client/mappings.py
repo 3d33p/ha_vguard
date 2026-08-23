@@ -17,6 +17,11 @@ TURBO_NEAR_FULL_BATTERY_PERCENT = 97
 # (battery_voltage × load_current × efficiency). Not exposed by the device.
 DEFAULT_INVERTER_EFFICIENCY = 0.90
 
+# Ignore near-zero currents when estimating remaining / charge time.
+_ETA_CURRENT_FLOOR_A = 0.05
+# Cap absurd ETAs from tiny currents (1 week).
+_ETA_MAX_HOURS = 168.0
+
 
 def estimate_load_watts(
     battery_voltage: float | None,
@@ -35,6 +40,127 @@ def estimate_load_watts(
     if volts < 0 or amps < 0 or efficiency <= 0:
         return None
     return round(volts * amps * float(efficiency), 1)
+
+
+def _clamp_eta_hours(hours: float) -> float | None:
+    if hours < 0:
+        return None
+    if hours > _ETA_MAX_HOURS:
+        return round(_ETA_MAX_HOURS, 1)
+    return round(hours, 1)
+
+
+def estimate_backup_hours(
+    capacity_ah: float | None,
+    battery_percentage: float | None,
+    load_current: float | None,
+    *,
+    is_on_mains: bool | None,
+) -> float | None:
+    """Remaining backup time (hours) while discharging off-mains.
+
+    hours = (capacity_ah × SOC/100) / load_current
+    """
+    if is_on_mains:
+        return None
+    if capacity_ah is None or battery_percentage is None or load_current is None:
+        return None
+    try:
+        ah = float(capacity_ah)
+        soc = float(battery_percentage)
+        amps = float(load_current)
+    except (TypeError, ValueError):
+        return None
+    if ah <= 0 or soc < 0 or amps < _ETA_CURRENT_FLOOR_A:
+        return None
+    return _clamp_eta_hours((ah * (soc / 100.0)) / amps)
+
+
+def estimate_charging_hours(
+    capacity_ah: float | None,
+    battery_percentage: float | None,
+    charging_current: float | None,
+    solar_current: float | None = None,
+) -> float | None:
+    """Estimated time-to-full (hours) from live charge current.
+
+    Uses the device's real-time charging current (VG018), which already
+    reflects charging mode (Normal/High/Low) and turbo charging, plus any
+    positive solar current.
+
+    hours = (capacity_ah × (1 − SOC/100)) / charge_amps
+    charge_amps = charging_current + max(solar_current, 0)
+    """
+    if capacity_ah is None or battery_percentage is None:
+        return None
+    try:
+        ah = float(capacity_ah)
+        soc = float(battery_percentage)
+    except (TypeError, ValueError):
+        return None
+    if ah <= 0 or soc < 0:
+        return None
+    if soc >= 100:
+        return 0.0
+
+    charge_amps = 0.0
+    for raw in (charging_current, solar_current):
+        if raw is None:
+            continue
+        try:
+            amps = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if amps > 0:
+            charge_amps += amps
+    if charge_amps < _ETA_CURRENT_FLOOR_A:
+        return None
+    return _clamp_eta_hours((ah * (1.0 - soc / 100.0)) / charge_amps)
+
+
+def format_estimated_backup_time(
+    capacity_ah: float | None,
+    battery_percentage: float | None,
+    load_current: float | None,
+    *,
+    is_on_mains: bool | None,
+) -> str | None:
+    """Human-readable backup ETA, or 'Mains Available' while on grid."""
+    if is_on_mains:
+        return "Mains Available"
+    hours = estimate_backup_hours(
+        capacity_ah,
+        battery_percentage,
+        load_current,
+        is_on_mains=False,
+    )
+    if hours is None:
+        return None
+    return f"{hours} h"
+
+
+def format_estimated_charging_time(
+    capacity_ah: float | None,
+    battery_percentage: float | None,
+    charging_current: float | None,
+    solar_current: float | None = None,
+) -> str | None:
+    """Human-readable charge ETA, or 'Fully Charged' at 100% SOC."""
+    try:
+        soc = float(battery_percentage) if battery_percentage is not None else None
+    except (TypeError, ValueError):
+        soc = None
+    if soc is not None and soc >= 100:
+        return "Fully Charged"
+    hours = estimate_charging_hours(
+        capacity_ah,
+        battery_percentage,
+        charging_current,
+        solar_current,
+    )
+    if hours is None:
+        return None
+    return f"{hours} h"
 
 
 def _safe_int(value: Any, default: int | None = None) -> int | None:

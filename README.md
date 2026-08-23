@@ -53,6 +53,7 @@ Without ApexCharts, you can use the plain markdown table card instead: [`lovelac
 - Sessions are cached (access/refresh tokens + a stable phone-like FCM id) so restarts can refresh without a full password login.
 - Brand icons ship in `custom_components/vguard/brand/` (Home Assistant 2026.3+ local brands).
 - Charging mode, power saver, and battery type are **sensors only** — they follow the physical switches; this integration does not write them. **Inverter Mode** (Normal / UPS / Equipment) is a selectable control.
+- **Estimated Backup Time** / **Estimated Charging Time** use the configured **Battery capacity (Ah)** (default 200; set under Configure) with a simple Ah × SOC ÷ current model. **Charging time** divides by the live **Charging Current** sensor (plus solar current when present), so Normal/High/Low mode and Turbo Charging are reflected as the amps change. They are still **rough guides only** — not highly accurate. Real runtime varies with load changes, battery age/health, chemistry and usable DoD, temperature, inverter efficiency, and charge taper near full. Set Ah to your actual bank size for best results; treat the numbers as approximate.
 - After updating via HACS or manually, **restart Home Assistant**. GitHub **Releases** (not just tags) give HACS a proper version number.
 
 ## Logs

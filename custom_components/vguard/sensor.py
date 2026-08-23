@@ -106,6 +106,18 @@ SENSORS: tuple[VGuardSensorDescription, ...] = (
         value_fn=lambda d: d.get("charging_current"),
     ),
     VGuardSensorDescription(
+        key="estimated_backup_hours",
+        translation_key="estimated_backup_hours",
+        name="Estimated Backup Time",
+        value_fn=lambda d: d.get("estimated_backup_hours"),
+    ),
+    VGuardSensorDescription(
+        key="estimated_charging_hours",
+        translation_key="estimated_charging_hours",
+        name="Estimated Charging Time",
+        value_fn=lambda d: d.get("estimated_charging_hours"),
+    ),
+    VGuardSensorDescription(
         key="mains_status_label",
         translation_key="mains_status_label",
         name="Mains Status",

@@ -97,6 +97,18 @@
       "charging_current": {
         "default": "mdi:battery-charging"
       },
+      "estimated_backup_hours": {
+        "default": "mdi:battery-clock",
+        "state": {
+          "Mains Available": "mdi:power-plug"
+        }
+      },
+      "estimated_charging_hours": {
+        "default": "mdi:battery-charging-outline",
+        "state": {
+          "Fully Charged": "mdi:battery"
+        }
+      },
       "mains_status_label": {
         "default": "mdi:power-plug-outline",
         "state": {

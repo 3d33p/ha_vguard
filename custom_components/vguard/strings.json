@@ -22,9 +22,10 @@
     "step": {
       "init": {
         "title": "V-Guard Smart options",
-        "description": "Poll interval in seconds (default 60). Values under 30 last 60 seconds, then revert to the last stable rate (30+). Use the Live Updates button for temporary 6s polling.",
+        "description": "Poll interval in seconds (default 60). Values under 30 last 60 seconds, then revert to the last stable rate (30+). Use the Live Updates button for temporary 6s polling. Battery capacity (Ah) is used for estimated backup and charging time (default 200).",
         "data": {
-          "scan_interval": "Poll interval (seconds)"
+          "scan_interval": "Poll interval (seconds)",
+          "battery_capacity_ah": "Battery capacity (Ah)"
         }
       }
     }

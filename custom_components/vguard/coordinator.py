@@ -13,13 +13,21 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from vguard_client import VGuardClient, VGuardError
+from vguard_client.mappings import (
+    format_estimated_backup_time,
+    format_estimated_charging_time,
+)
 
 from .const import (
     ACTIVE_POLL_HOLD_S,
     ACTIVE_POLL_INTERVAL,
+    CONF_BATTERY_CAPACITY_AH,
     CONF_SCAN_INTERVAL,
+    DEFAULT_BATTERY_CAPACITY_AH,
     DEFAULT_SCAN_INTERVAL,
+    MAX_BATTERY_CAPACITY_AH,
     MAX_SCAN_INTERVAL,
+    MIN_BATTERY_CAPACITY_AH,
     MIN_SCAN_INTERVAL,
     MIN_STABLE_SCAN_INTERVAL,
 )
@@ -38,6 +46,15 @@ def clamp_scan_interval(seconds: float | int) -> int:
     except (TypeError, ValueError):
         value = DEFAULT_SCAN_INTERVAL
     return max(MIN_SCAN_INTERVAL, min(MAX_SCAN_INTERVAL, value))
+
+
+def clamp_battery_capacity_ah(value: float | int | None) -> int:
+    """Clamp configured battery bank capacity (Ah)."""
+    try:
+        ah = int(round(float(value)))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        ah = DEFAULT_BATTERY_CAPACITY_AH
+    return max(MIN_BATTERY_CAPACITY_AH, min(MAX_BATTERY_CAPACITY_AH, ah))
 
 
 class VGuardDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -178,7 +195,7 @@ class VGuardDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._optimistic.update(updates)
         self._optimistic_until = time.monotonic() + _OPTIMISTIC_HOLD_S
         merged = {**(self.data or {}), **updates}
-        _refresh_derived(merged)
+        self._refresh_derived(merged)
         self.async_set_updated_data(merged)
 
     def async_schedule_refresh_after_write(self) -> None:
@@ -254,12 +271,41 @@ class VGuardDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._optimistic.clear()
             self._optimistic_until = 0.0
 
-        _refresh_derived(data)
+        self._refresh_derived(data)
         return data
 
+    def _configured_capacity_ah(self) -> int:
+        return clamp_battery_capacity_ah(
+            self._entry.options.get(
+                CONF_BATTERY_CAPACITY_AH, DEFAULT_BATTERY_CAPACITY_AH
+            )
+        )
 
-def _refresh_derived(data: dict[str, Any]) -> None:
-    """Keep derived dashboard fields consistent after patches."""
-    data["is_turbo_charging_switch_on"] = bool(
-        data.get("is_turbo_charging") and data.get("is_on_mains")
-    )
+    @callback
+    def refresh_time_estimates(self) -> None:
+        """Recompute backup/charging ETAs after options (Ah) change."""
+        if self.data is None:
+            return
+        data = dict(self.data)
+        self._refresh_derived(data)
+        self.async_set_updated_data(data)
+
+    def _refresh_derived(self, data: dict[str, Any]) -> None:
+        """Keep derived dashboard fields consistent after patches."""
+        data["is_turbo_charging_switch_on"] = bool(
+            data.get("is_turbo_charging") and data.get("is_on_mains")
+        )
+        capacity_ah = self._configured_capacity_ah()
+        data["battery_capacity_ah"] = capacity_ah
+        data["estimated_backup_hours"] = format_estimated_backup_time(
+            capacity_ah,
+            data.get("battery_percentage"),
+            data.get("load_current"),
+            is_on_mains=data.get("is_on_mains"),
+        )
+        data["estimated_charging_hours"] = format_estimated_charging_time(
+            capacity_ah,
+            data.get("battery_percentage"),
+            data.get("charging_current"),
+            data.get("solar_current"),
+        )
