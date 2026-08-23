@@ -31,6 +31,26 @@ def _parse_bool(value: str) -> bool:
     raise argparse.ArgumentTypeError(f"expected ON/OFF, got {value!r}")
 
 
+def _parse_power_mode(value: str) -> int:
+    from . import commands
+
+    v = value.strip().lower()
+    aliases = {
+        "normal": commands.POWER_MODE_NORMAL,
+        "0": commands.POWER_MODE_NORMAL,
+        "ups": commands.POWER_MODE_UPS,
+        "1": commands.POWER_MODE_UPS,
+        "equipment": commands.POWER_MODE_EQUIPMENT,
+        "appliance": commands.POWER_MODE_EQUIPMENT,
+        "2": commands.POWER_MODE_EQUIPMENT,
+    }
+    if v not in aliases:
+        raise argparse.ArgumentTypeError(
+            f"expected normal|ups|equipment (or 0|1|2), got {value!r}"
+        )
+    return aliases[v]
+
+
 def _resolve_report_path(path: str | None) -> str | None:
     """Write relative report paths under the repo root, not the process cwd."""
     if path is None:
@@ -133,6 +153,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--set-holiday", type=_parse_bool, default=None, metavar="ON|OFF")
     p.add_argument("--set-turbo", type=_parse_bool, default=None, metavar="ON|OFF")
     p.add_argument("--set-appliance", type=_parse_bool, default=None, metavar="ON|OFF")
+    p.add_argument(
+        "--set-power-mode",
+        choices=["normal", "ups", "equipment", "appliance", "0", "1", "2"],
+        default=None,
+        metavar="MODE",
+        help="Inverter mode (VG021): normal|ups|equipment (or 0|1|2)",
+    )
     p.add_argument("--set-extra-backup", type=_parse_bool, default=None, metavar="ON|OFF")
     p.add_argument(
         "--set-advance-battery-low-alarm",
@@ -201,6 +228,8 @@ def _command_preview(name: str, args: argparse.Namespace) -> list[str]:
         cmds.append(commands.cmd_turbo_charging(args.set_turbo))
     elif name == "appliance":
         cmds.append(commands.cmd_appliance_mode(args.set_appliance))
+    elif name == "power_mode":
+        cmds.append(commands.cmd_power_mode(_parse_power_mode(args.set_power_mode)))
     elif name == "extra_backup":
         cmds.append(commands.cmd_extra_backup(args.set_extra_backup))
     elif name == "advance_battery_low_alarm":
@@ -235,6 +264,9 @@ def _apply_set_commands(client: VGuardClient, args: argparse.Namespace) -> None:
         planned.append(("turbo", lambda: client.set_turbo_charging(args.set_turbo)))
     if args.set_appliance is not None:
         planned.append(("appliance", lambda: client.set_appliance_mode(args.set_appliance)))
+    if args.set_power_mode is not None:
+        mode = _parse_power_mode(args.set_power_mode)
+        planned.append(("power_mode", lambda m=mode: client.set_power_mode(m)))
     if args.set_extra_backup is not None:
         planned.append(("extra_backup", lambda: client.set_extra_backup(args.set_extra_backup)))
     if args.set_advance_battery_low_alarm is not None:

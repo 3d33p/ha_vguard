@@ -118,15 +118,7 @@ SENSORS: tuple[VGuardSensorDescription, ...] = (
         value_fn=lambda d: d.get("load_status_label"),
     ),
     # --- Diagnostic ---
-    VGuardSensorDescription(
-        key="power_mode_label",
-        translation_key="power_mode_label",
-        name="Inverter Mode",
-        device_class=SensorDeviceClass.ENUM,
-        options=["Normal", "UPS", "Equipment"],
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda d: d.get("power_mode_label"),
-    ),
+    # Inverter Mode is a select (Controls) that writes VG021.
     VGuardSensorDescription(
         key="charging_mode_label",
         translation_key="charging_mode_label",

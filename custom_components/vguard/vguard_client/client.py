@@ -260,6 +260,10 @@ class VGuardClient:
     def set_appliance_mode(self, enabled: bool) -> dict[str, Any]:
         return self.publish(commands.cmd_appliance_mode(enabled))
 
+    def set_power_mode(self, mode: int) -> dict[str, Any]:
+        """Inverter mode (VG021): 0=Normal, 1=UPS, 2=Equipment."""
+        return self.publish(commands.cmd_power_mode(mode))
+
     def set_extra_backup(self, enabled: bool) -> dict[str, Any]:
         """Extra backup (VG072). App only allows this after low battery."""
         return self.publish(commands.cmd_extra_backup(enabled))

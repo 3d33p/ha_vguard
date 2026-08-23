@@ -25,6 +25,14 @@
           "180 Min": "mdi:timer-sand",
           "240 Min": "mdi:timer-sand"
         }
+      },
+      "inverter_mode": {
+        "default": "mdi:tune-vertical",
+        "state": {
+          "Normal": "mdi:tune-vertical",
+          "UPS": "mdi:battery-charging",
+          "Equipment": "mdi:cog"
+        }
       }
     },
     "number": {
@@ -104,14 +112,6 @@
           "Load On Mains": "mdi:transmission-tower",
           "Load On Inverter": "mdi:lightning-bolt",
           "Standby Mode": "mdi:power-sleep"
-        }
-      },
-      "power_mode_label": {
-        "default": "mdi:tune-vertical",
-        "state": {
-          "Normal": "mdi:tune-vertical",
-          "UPS": "mdi:battery-charging",
-          "Equipment": "mdi:cog"
         }
       },
       "charging_mode_label": {

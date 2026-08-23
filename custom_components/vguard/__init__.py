@@ -46,6 +46,8 @@ _STALE_FORCE_CUT_ENTITIES: tuple[tuple[str, str], ...] = (
     # Consolidated into the single "Power cut trends" sensor.
     ("sensor", "power_cut_today_count"),
     ("sensor", "power_cut_today_duration"),
+    # Inverter Mode moved from diagnostic sensor → select control.
+    ("sensor", "power_mode_label"),
 )
 
 

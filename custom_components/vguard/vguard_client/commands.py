@@ -95,5 +95,23 @@ def cmd_wake() -> str:
     return cmd_unlock_battery_type()
 
 
-# Not exposed as writers: VG021 (inverter/power mode), VG023 (charging mode),
-# VG183 (power saver), VG022 (battery type) — rear hardware switches only.
+# Inverter / power mode (app Mode Selected): 0=Normal, 1=UPS, 2=Equipment.
+POWER_MODE_NORMAL = 0
+POWER_MODE_UPS = 1
+POWER_MODE_EQUIPMENT = 2
+POWER_MODE_VALUES: frozenset[int] = frozenset(
+    {POWER_MODE_NORMAL, POWER_MODE_UPS, POWER_MODE_EQUIPMENT}
+)
+
+
+def cmd_power_mode(mode: int) -> str:
+    """Set inverter mode: Normal / UPS / Equipment (VG021)."""
+    mode = int(mode)
+    if mode not in POWER_MODE_VALUES:
+        allowed = ", ".join(str(v) for v in sorted(POWER_MODE_VALUES))
+        raise ValueError(f"power_mode must be one of {{{allowed}}}; got {mode}")
+    return f"VG021:{mode}"
+
+
+# Not exposed as writers: VG023 (charging mode), VG183 (power saver),
+# VG022 (battery type) — rear hardware switches only.

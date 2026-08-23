@@ -8,7 +8,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from vguard_client import VGuardClient
-from vguard_client.commands import FORCE_CUT_PRESETS_MINUTES
+from vguard_client.commands import (
+    FORCE_CUT_PRESETS_MINUTES,
+    POWER_MODE_EQUIPMENT,
+    POWER_MODE_NORMAL,
+    POWER_MODE_UPS,
+)
+from vguard_client.mappings import label_power_mode
 
 from .const import DOMAIN
 from .coordinator import VGuardDataUpdateCoordinator
@@ -22,6 +28,14 @@ _FORCE_CUT_DURATION_OPTIONS: dict[str, int] = {
 _MINUTES_TO_OPTION = {m: label for label, m in _FORCE_CUT_DURATION_OPTIONS.items()}
 _ALL_OPTIONS = [_OPTION_OFF, *_FORCE_CUT_DURATION_OPTIONS]
 
+# App Mode Selected: UPS / Normal / Equipment (VG021).
+_POWER_MODE_OPTIONS: dict[str, int] = {
+    "Normal": POWER_MODE_NORMAL,
+    "UPS": POWER_MODE_UPS,
+    "Equipment": POWER_MODE_EQUIPMENT,
+}
+_POWER_MODE_LABELS = list(_POWER_MODE_OPTIONS)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -33,7 +47,8 @@ async def async_setup_entry(
         [
             ForcePowerCutDurationSelect(
                 data["coordinator"], data["client"], entry
-            )
+            ),
+            InverterModeSelect(data["coordinator"], data["client"], entry),
         ]
     )
 
@@ -90,4 +105,44 @@ class ForcePowerCutDurationSelect(VGuardEntity, SelectEntity):
                     "main_force_cut_time": minutes,
                 }
             )
+        self.coordinator.async_schedule_refresh_after_write()
+
+
+class InverterModeSelect(VGuardEntity, SelectEntity):
+    """Inverter mode: Normal, UPS, or Equipment (VG021)."""
+
+    _attr_name = "Inverter Mode"
+    _attr_translation_key = "inverter_mode"
+    _attr_options = list(_POWER_MODE_LABELS)
+
+    def __init__(
+        self,
+        coordinator: VGuardDataUpdateCoordinator,
+        client: VGuardClient,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(coordinator, entry, client=client)
+        self._attr_unique_id = f"{entry.entry_id}_inverter_mode"
+
+    @property
+    def current_option(self) -> str | None:
+        data = self.coordinator.data or {}
+        label = data.get("power_mode_label")
+        if label in _POWER_MODE_OPTIONS:
+            return label
+        return label_power_mode(data.get("power_mode"))
+
+    async def async_select_option(self, option: str) -> None:
+        mode = _POWER_MODE_OPTIONS[option]
+
+        def _set() -> None:
+            self._client.set_power_mode(mode)
+
+        await self.hass.async_add_executor_job(_set)
+        self.coordinator.apply_optimistic(
+            {
+                "power_mode": mode,
+                "power_mode_label": option,
+            }
+        )
         self.coordinator.async_schedule_refresh_after_write()

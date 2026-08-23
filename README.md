@@ -52,7 +52,7 @@ Without ApexCharts, you can use the plain markdown table card instead: [`lovelac
 - **Online** (diagnostic binary sensor) is on when the cloud subscribe API returns a device payload, and off when the payload is empty (device offline / empty cache). Other entities keep their last readings instead of flipping to Unavailable on a single miss.
 - Sessions are cached (access/refresh tokens + a stable phone-like FCM id) so restarts can refresh without a full password login.
 - Brand icons ship in `custom_components/vguard/brand/` (Home Assistant 2026.3+ local brands).
-- Inverter mode, charging mode, power saver, and battery type are **sensors only** — they follow the physical switches; this integration does not write them.
+- Charging mode, power saver, and battery type are **sensors only** — they follow the physical switches; this integration does not write them. **Inverter Mode** (Normal / UPS / Equipment) is a selectable control.
 - After updating via HACS or manually, **restart Home Assistant**. GitHub **Releases** (not just tags) give HACS a proper version number.
 
 ## Logs

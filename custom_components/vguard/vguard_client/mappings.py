@@ -360,6 +360,8 @@ def label_power_mode(value: int | None) -> str | None:
         return "Normal"
     if value == 1:
         return "UPS"
+    if value == 2:
+        return "Equipment"
     return "Equipment"
 
 
