@@ -9,6 +9,11 @@ MIN_SCAN_INTERVAL = 6
 MAX_SCAN_INTERVAL = 300
 ACTIVE_POLL_INTERVAL = 6
 ACTIVE_POLL_HOLD_S = 60
+# After a write, stop live polling this long after the cloud confirms it.
+POST_WRITE_CONFIRM_GRACE_S = 12
+# Back off when the device is offline / the cloud keeps failing.
+BACKOFF_AFTER_FAILURES = 2
+MAX_BACKOFF_INTERVAL = 300
 
 CONF_EMAIL = "email"
 CONF_PASSWORD = "password"

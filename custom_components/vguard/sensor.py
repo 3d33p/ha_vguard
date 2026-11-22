@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Callable
 
 from homeassistant.components.sensor import (
@@ -21,6 +22,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import VGuardDataUpdateCoordinator
@@ -29,6 +31,23 @@ from .entity import VGuardEntity
 @dataclass(frozen=True, kw_only=True)
 class VGuardSensorDescription(SensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
+    attrs_fn: Callable[[dict[str, Any]], dict[str, Any] | None] | None = None
+
+
+def _eta_attrs(details_key: str, completes_key: str) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def _attrs(data: dict[str, Any]) -> dict[str, Any]:
+        details = dict(data.get(details_key) or {})
+        hours = details.get("hours")
+        details[completes_key] = (
+            (dt_util.now() + timedelta(hours=hours)).isoformat(timespec="minutes")
+            if isinstance(hours, (int, float)) and hours > 0
+            else None
+        )
+        details["battery_capacity_ah"] = data.get("battery_capacity_ah")
+        details["battery_profile"] = data.get("battery_profile")
+        return details
+
+    return _attrs
 
 
 # Primary → Sensors card. Diagnostic → Diagnostic card.
@@ -110,12 +129,14 @@ SENSORS: tuple[VGuardSensorDescription, ...] = (
         translation_key="estimated_backup_hours",
         name="Estimated Backup Time",
         value_fn=lambda d: d.get("estimated_backup_hours"),
+        attrs_fn=_eta_attrs("estimated_backup_details", "runs_out_at"),
     ),
     VGuardSensorDescription(
         key="estimated_charging_hours",
         translation_key="estimated_charging_hours",
         name="Estimated Charging Time",
         value_fn=lambda d: d.get("estimated_charging_hours"),
+        attrs_fn=_eta_attrs("estimated_charging_details", "full_at"),
     ),
     VGuardSensorDescription(
         key="mains_status_label",
@@ -236,6 +257,12 @@ class VGuardSensor(VGuardEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.attrs_fn is None:
+            return None
+        return self.entity_description.attrs_fn(self.coordinator.data or {})
 
 
 class WifiSignalStrengthSensor(VGuardEntity, SensorEntity):

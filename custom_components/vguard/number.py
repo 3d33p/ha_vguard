@@ -211,7 +211,9 @@ class PollIntervalNumber(VGuardEntity, NumberEntity):
         def _interval_changed() -> None:
             self.async_write_ha_state()
 
-        self.coordinator.async_add_interval_listener(_interval_changed)
+        self.async_on_remove(
+            self.coordinator.async_add_interval_listener(_interval_changed)
+        )
 
     @property
     def native_value(self) -> float | None:
@@ -222,6 +224,8 @@ class PollIntervalNumber(VGuardEntity, NumberEntity):
         return {
             "stable_interval": self.coordinator.last_stable_rate,
             "live_polling": self.coordinator.is_live_polling,
+            "backing_off": self.coordinator.is_backing_off,
+            "consecutive_failures": self.coordinator.consecutive_failures,
             "note": (
                 f"Values under {MIN_STABLE_SCAN_INTERVAL}s last "
                 f"{ACTIVE_POLL_HOLD_S}s, then revert to the stable interval. "

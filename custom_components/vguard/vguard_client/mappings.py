@@ -9,6 +9,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Callable
 
+from . import estimates as _estimates
+
 # App battery gauge caps SOC above this at 97 until the "charged" state forces 100.
 # Firmware also tends to clear turbo near full; HA uses this as a preemptive gate.
 TURBO_NEAR_FULL_BATTERY_PERCENT = 97
@@ -17,14 +19,8 @@ TURBO_NEAR_FULL_BATTERY_PERCENT = 97
 # (battery_voltage × load_current × efficiency). Not exposed by the device.
 DEFAULT_INVERTER_EFFICIENCY = 0.90
 
-# Lead-acid / tubular banks should not be drained to 0%. Backup ETA only
-# counts usable capacity from current SOC down to this floor (percent).
-DEFAULT_BACKUP_SOC_FLOOR_PERCENT = 20.0
-
-# Ignore near-zero currents when estimating remaining / charge time.
-_ETA_CURRENT_FLOOR_A = 0.05
-# Cap absurd ETAs from tiny currents (1 week).
-_ETA_MAX_HOURS = 168.0
+# Backup / charge ETAs live in ``estimates``; these wrappers keep the old API.
+DEFAULT_BACKUP_SOC_FLOOR_PERCENT = _estimates.TUBULAR.soc_floor_percent
 
 
 def estimate_load_watts(
@@ -46,49 +42,24 @@ def estimate_load_watts(
     return round(volts * amps * float(efficiency), 1)
 
 
-def _clamp_eta_hours(hours: float) -> float | None:
-    if hours < 0:
-        return None
-    if hours > _ETA_MAX_HOURS:
-        return round(_ETA_MAX_HOURS, 1)
-    return round(hours, 1)
-
-
 def estimate_backup_hours(
     capacity_ah: float | None,
     battery_percentage: float | None,
     load_current: float | None,
     *,
     is_on_mains: bool | None,
-    soc_floor_percent: float = DEFAULT_BACKUP_SOC_FLOOR_PERCENT,
+    battery_type: int | None = None,
+    solar_current: float | None = None,
 ) -> float | None:
-    """Remaining backup time (hours) while discharging off-mains.
-
-    Counts only usable Ah above the SOC floor (default 20% for lead-acid):
-
-    hours = (capacity_ah × max(0, SOC − floor)/100) / load_current
-    """
-    if is_on_mains:
-        return None
-    if capacity_ah is None or battery_percentage is None or load_current is None:
-        return None
-    try:
-        ah = float(capacity_ah)
-        soc = float(battery_percentage)
-        amps = float(load_current)
-        floor = float(soc_floor_percent)
-    except (TypeError, ValueError):
-        return None
-    if ah <= 0 or soc < 0 or amps < _ETA_CURRENT_FLOOR_A:
-        return None
-    if floor < 0:
-        floor = 0.0
-    if floor >= 100:
-        return None
-    usable_fraction = (soc - floor) / 100.0
-    if usable_fraction <= 0:
-        return 0.0
-    return _clamp_eta_hours((ah * usable_fraction) / amps)
+    """Remaining backup hours (see ``estimates`` for the model)."""
+    return _estimates.estimate_backup(
+        capacity_ah,
+        battery_percentage,
+        load_current,
+        is_on_mains=is_on_mains,
+        solar_current=solar_current,
+        profile=_estimates.profile_for_battery_type(battery_type),
+    ).hours
 
 
 def estimate_charging_hours(
@@ -96,50 +67,18 @@ def estimate_charging_hours(
     battery_percentage: float | None,
     charging_current: float | None,
     solar_current: float | None = None,
+    *,
+    battery_type: int | None = None,
 ) -> float | None:
-    """Estimated time-to-full (hours) from live charge current.
-
-    Uses the device's real-time charging current (VG018), which already
-    reflects charging mode (Normal/High/Low) and turbo charging, plus any
-    positive solar current.
-
-    hours = (capacity_ah × (1 − SOC/100)) / charge_amps
-    charge_amps = charging_current + max(solar_current, 0)
-    """
-    if capacity_ah is None or battery_percentage is None:
-        return None
-    try:
-        ah = float(capacity_ah)
-        soc = float(battery_percentage)
-    except (TypeError, ValueError):
-        return None
-    if ah <= 0 or soc < 0:
-        return None
-    if soc >= 100:
-        return 0.0
-
-    charge_amps = 0.0
-    for raw in (charging_current, solar_current):
-        if raw is None:
-            continue
-        try:
-            amps = float(raw)
-        except (TypeError, ValueError):
-            continue
-        if amps > 0:
-            charge_amps += amps
-    if charge_amps < _ETA_CURRENT_FLOOR_A:
-        return None
-    return _clamp_eta_hours((ah * (1.0 - soc / 100.0)) / charge_amps)
-
-
-def _format_eta_hhmm(hours: float) -> str:
-    """Format estimated hours as H:MM (e.g. 1.7 → 1:42)."""
-    total_minutes = int(round(float(hours) * 60))
-    if total_minutes < 0:
-        total_minutes = 0
-    h, m = divmod(total_minutes, 60)
-    return f"{h}:{m:02d}"
+    """Hours to full on mains (see ``estimates`` for the model)."""
+    return _estimates.estimate_charging(
+        capacity_ah,
+        battery_percentage,
+        charging_current,
+        is_on_mains=True,
+        solar_current=solar_current,
+        profile=_estimates.profile_for_battery_type(battery_type),
+    ).hours
 
 
 def format_estimated_backup_time(
@@ -148,19 +87,18 @@ def format_estimated_backup_time(
     load_current: float | None,
     *,
     is_on_mains: bool | None,
+    battery_type: int | None = None,
+    solar_current: float | None = None,
 ) -> str | None:
-    """Human-readable backup ETA (H:MM), or 'Mains Available' while on grid."""
-    if is_on_mains:
-        return "Mains Available"
-    hours = estimate_backup_hours(
+    """Backup ETA as H:MM, or a status label."""
+    return _estimates.estimate_backup(
         capacity_ah,
         battery_percentage,
         load_current,
-        is_on_mains=False,
-    )
-    if hours is None:
-        return None
-    return _format_eta_hhmm(hours)
+        is_on_mains=is_on_mains,
+        solar_current=solar_current,
+        profile=_estimates.profile_for_battery_type(battery_type),
+    ).state
 
 
 def format_estimated_charging_time(
@@ -170,25 +108,19 @@ def format_estimated_charging_time(
     solar_current: float | None = None,
     *,
     is_on_mains: bool | None = None,
+    battery_type: int | None = None,
+    load_current: float | None = None,
 ) -> str | None:
-    """Human-readable charge ETA (H:MM), status labels when not charging."""
-    if is_on_mains is False:
-        return "Mains Unavailable"
-    try:
-        soc = float(battery_percentage) if battery_percentage is not None else None
-    except (TypeError, ValueError):
-        soc = None
-    if soc is not None and soc >= 100:
-        return "Fully Charged"
-    hours = estimate_charging_hours(
+    """Charge ETA as H:MM, or a status label."""
+    return _estimates.estimate_charging(
         capacity_ah,
         battery_percentage,
         charging_current,
-        solar_current,
-    )
-    if hours is None:
-        return None
-    return _format_eta_hhmm(hours)
+        is_on_mains=is_on_mains,
+        solar_current=solar_current,
+        load_current=load_current,
+        profile=_estimates.profile_for_battery_type(battery_type),
+    ).state
 
 
 def _safe_int(value: Any, default: int | None = None) -> int | None:

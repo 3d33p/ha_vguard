@@ -12,6 +12,11 @@ from .products import Product
 
 NOUS_BASE = "https://nous20.vguard.in/"
 
+# (connect, read) seconds. Polls run every few seconds in live mode, so a
+# stalled request must not hold the poller for 30s.
+SUBSCRIBE_TIMEOUT = (5, 15)
+PUBLISH_TIMEOUT = (5, 20)
+
 
 class NousError(RuntimeError):
     pass
@@ -61,7 +66,7 @@ def subscribe(
     resp = http.get(
         f"{NOUS_BASE}{path}",
         headers=_nous_headers(access_token, identity=identity),
-        timeout=30,
+        timeout=SUBSCRIBE_TIMEOUT,
     )
     return _json_or_raise(resp, "subscribe", allow_empty=allow_empty)
 
@@ -115,7 +120,7 @@ def publish(
         f"{NOUS_BASE}nous/device/publish",
         json={"topic": topic, "payload": payload},
         headers=_nous_headers(access_token, identity=identity),
-        timeout=30,
+        timeout=PUBLISH_TIMEOUT,
     )
     return _json_or_raise(resp, "publish")
 
